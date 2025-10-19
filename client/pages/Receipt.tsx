@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { format, parseISO } from "date-fns";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type PaymentMethod = "telebirr" | "chapa" | null;
 
@@ -14,10 +14,16 @@ interface ReceiptMeal {
 
 interface LocationState {
   subscriptionType?: "monthly" | "weekly";
-  price?: string;
+  budgetLimit?: string;
+  planId?: string;
+  planName?: string;
+  mealPlanId?: string;
+  mealSchedule?: Record<string, Record<string, number>>;
+  totalCost?: number;
+  totalMeals?: number;
   meals?: ReceiptMeal[];
   totalPrice?: number;
-  totalMeals?: number;
+  availableMeals?: any[]; // Meal data from database
 }
 
 const fallbackMeals: ReceiptMeal[] = [
@@ -35,8 +41,42 @@ export default function Receipt() {
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("telebirr");
 
+  // Debug: Log the received state
+  console.log("Receipt received state:", state);
+
   const subscriptionType = state.subscriptionType || "weekly";
-  const meals = state.meals && state.meals.length > 0 ? state.meals : fallbackMeals;
+  
+  // Convert mealSchedule to meals format
+  const convertScheduleToMeals = (
+    mealSchedule: Record<string, Record<string, number>>, 
+    availableMeals: any[] = []
+  ): ReceiptMeal[] => {
+    const mealsArray: ReceiptMeal[] = [];
+    
+    Object.entries(mealSchedule).forEach(([date, dayMeals]) => {
+      Object.entries(dayMeals).forEach(([mealId, quantity]) => {
+        // Find the actual meal data from the available meals
+        const mealData = availableMeals.find(meal => meal.id === mealId);
+        
+        const mealName = mealData?.name || `Meal ${mealId}`;
+        const mealPrice = mealData?.base_price || 170;
+        
+        mealsArray.push({
+          id: `${mealId}-${date}`,
+          name: mealName,
+          quantity,
+          price: mealPrice,
+          dateISO: date
+        });
+      });
+    });
+    
+    return mealsArray;
+  };
+
+  const meals = state.mealSchedule 
+    ? convertScheduleToMeals(state.mealSchedule, state.availableMeals)
+    : (state.meals && state.meals.length > 0 ? state.meals : fallbackMeals);
 
   const selectedMeals = useMemo(
     () => meals.filter((meal) => meal.quantity > 0),
@@ -48,7 +88,8 @@ export default function Receipt() {
     [selectedMeals]
   );
 
-  const totalPrice = state.totalPrice ?? calculatedTotalPrice;
+  // Use the total cost from meal selection if available, otherwise calculate
+  const totalPrice = state.totalCost || state.totalPrice || calculatedTotalPrice;
 
   const handleNext = () => {
     if (selectedPayment) {
