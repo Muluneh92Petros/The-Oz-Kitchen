@@ -1,7 +1,17 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 export default function Index() {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  // Redirect authenticated users to price selection
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/price");
+    }
+  }, [user, loading, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col justify-between items-center bg-[#19464C] p-4 pb-8">
@@ -32,7 +42,7 @@ export default function Index() {
       <div className="w-full max-w-md flex flex-col items-center gap-3">
         {/* Get Started Button */}
         <button
-          onClick={() => navigate("/price")}
+          onClick={() => navigate("/signup")}
           className="w-full bg-[#E9AA44] hover:bg-[#E9AA44]/90 text-white font-bold text-base py-4 px-8 rounded-xl transition-all duration-200 active:scale-95"
         >
           Get Started
